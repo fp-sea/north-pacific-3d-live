@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>North Pacific 3D — the Pacific atmosphere, past 24 h to 7 days ahead</title>
+<style>
+  
+  :root {
+    --bg: #12161c;
+    --panel-bg: #1a1f28;
+    --border: #2a323f;
+    --text: #d7dce2;
+    --text-muted: #8a94a3;
+    --accent-amber: #d99b3f;
+    --accent-amber-bg: #3a2f1a;
+    --link: #6fb3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.4;
+    display: flex; flex-direction: column;
+  }
+  a { color: var(--link); }
+  .masthead { padding: 0.35rem 0.8rem 0.3rem; border-bottom: 1px solid var(--border); }
+  .masthead h1 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+  .masthead h1 .sub { font-size: 0.8rem; font-weight: 400; color: var(--text-muted); }
+  .mh-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; }
+  .about summary { cursor: pointer; font-size: 0.75rem; color: var(--link); }
+  .about[open] { position: absolute; right: 0.8rem; top: 0.3rem; z-index: 20; max-width: 460px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; }
+  .about p { font-size: 0.78rem; color: var(--text-muted); margin: 0.3rem 0 0; }
+  .masthead .disclaimer, .masthead .times { margin: 0.05rem 0; font-size: 0.72rem; line-height: 1.3; }
+  .disclaimer, .top-links, .times { color: var(--text-muted); font-size: 0.8rem; margin: 0.15rem 0; }
+  .times { color: var(--text); }
+  .stale[hidden] { display: none; }
+  .stale { display: inline-block; margin: 0.2rem 0; font-size: 0.8rem; color: #1a1206; background: var(--accent-amber);
+           border-radius: 3px; padding: 0.05rem 0.45rem; font-weight: 600; }
+
+  .stage { position: relative; flex: 1; min-height: 420px; }
+  #atmos3d { position: absolute; inset: 0; }
+  #atmos3d canvas { display: block; }
+
+  .coach { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+  .coach[hidden] { display: none; }
+  .coach-hole { position: fixed; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(5,10,20,0.62); outline: 2px solid var(--accent-amber); transition: all 0.25s; }
+  .coach-tip { position: fixed; pointer-events: auto; background: var(--panel-bg, #1b2430); color: var(--text, #e6ebf0); border: 1px solid var(--accent-amber); border-radius: 8px; padding: 0.6rem 0.7rem; font-size: 0.82rem; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
+  .coach-tip p { margin: 0 0 0.5rem; }
+  .coach-nav { display: flex; gap: 0.4rem; align-items: center; justify-content: flex-end; font-size: 0.72rem; color: var(--text-muted); }
+  .coach-nav span { margin-right: auto; }
+  .zoombox { position: fixed; inset: 0; z-index: 100; background: rgba(8,12,18,0.92); display: flex; flex-direction: column; }
+  .zoombox[hidden] { display: none; }
+  .zoombar { display: flex; gap: 0.6rem; align-items: center; padding: 0.4rem 0.7rem; color: #e6ebf0; font-size: 0.8rem; }
+  .zoombar #zoomCaption { flex: 1; min-width: 0; }
+  .zoomhint { color: #9aa6b2; font-size: 0.72rem; }
+  .zoomframe { flex: 1; min-height: 0; overflow: auto; display: flex; }
+  .zoomframe img { margin: auto; max-width: 100%; max-height: 100%; background: #fff; cursor: zoom-in; }
+  .zoombox.actual .zoomframe img { max-width: none; max-height: none; cursor: zoom-out; }
+  .newbuild { position: absolute; top: 0.5rem; right: 0.6rem; z-index: 30; max-width: min(320px, calc(100% - 1.2rem)); padding: 0.4rem 0.6rem;
+    background: var(--accent-amber-bg); border: 1px solid var(--accent-amber); border-radius: 6px; font-size: 0.78rem; display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+  .newbuild[hidden] { display: none; }
+  .hud { position: absolute; top: 0.5rem; left: 50%; transform: translateX(-50%); text-align: center; line-height: 1.25;
+         background: rgba(18,22,28,0.82); border: 1px solid var(--border); border-radius: 6px; padding: 0.22rem 0.6rem 0.25rem;
+         /* Centred between the panel and the right-hand column (probe 322 px): long notes wrap, never overlap. */
+         max-width: calc(100% - 2 * (322px + 1.4rem)); }
+  /* local time leads, UTC after it smaller; then run and lead; then the notes, two lines unless clicked open */
+  .hud .valid { font-size: 0.95rem; font-weight: 600; }
+  .hud .valid .utc { font-weight: 400; font-size: 0.82em; color: var(--text-muted); }
+  .hud .meta { color: var(--text-muted); font-size: 0.72rem; }
+  .interp[hidden] { display: none; }
+  .interp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 0.15rem;
+            font-size: 0.68rem; line-height: 1.3; color: var(--accent-amber); background: var(--accent-amber-bg); border-radius: 3px;
+            padding: 0.05rem 0.4rem; cursor: pointer; }
+  .interp.open { -webkit-line-clamp: unset; }
+  .opclbl { font-size: 0.72rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+
+  .panel { position: absolute; top: 0.6rem; left: 0.6rem; width: 300px; max-height: calc(100% - 7rem); overflow: auto;
+           background: rgba(26,31,40,0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem; }
+  .panel h2 { font-size: 0.85rem; margin: 0 0 0.4rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .panel label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; margin: 0.12rem 0; }
+  .panel select, .panel input[type=range] { flex: 1; min-width: 0; }
+  fieldset.layer { border: 1px solid var(--border); border-radius: 4px; margin: 0 0 0.5rem; padding: 0.3rem 0.5rem 0.4rem; }
+  fieldset.layer legend { font-weight: 600; padding: 0 0.2rem; }
+  fieldset.layer[data-on="0"] { padding-bottom: 0; border-color: transparent; }
+  fieldset.layer[data-on="0"] .layer-body { display: none; }
+  .model-toggle { display: flex; gap: 0.8rem; margin: 0 0 0.5rem; }
+  .pkeys { display: flex; flex-wrap: wrap; gap: 0.2rem 0.7rem; font-size: 0.75rem; color: var(--text-muted); margin: 0.2rem 0 0.4rem; }
+  .pkey i { display: inline-block; width: 14px; height: 3px; margin-right: 0.3rem; vertical-align: middle; border-radius: 2px; }
+  .cams { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.3rem; }
+  .panel[hidden] { display: none; }
+  .panel section { margin: 0 0 0.7rem; }
+  .panel h3 { font-size: 0.72rem; margin: 0.45rem 0 0.1rem; color: var(--text-muted); font-weight: 600; }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; font-size: 0.8rem; }
+  .panel select#questionSel { width: 100%; }
+  .panel label.sub { padding-left: 1.2rem; }
+  .panel label.off { opacity: 0.45; }
+  .card { margin-top: 0.35rem; font-size: 0.76rem; line-height: 1.4; background: #202733; border-radius: 4px; padding: 0.4rem 0.5rem; }
+  .card p { margin: 0 0 0.3rem; }
+  .case-item { display: block; width: 100%; text-align: left; margin: 0 0 0.35rem; padding: 0.4rem 0.5rem; background: #202733;
+               border: 1px solid var(--border); border-radius: 4px; font-size: 0.76rem; line-height: 1.35; color: var(--text); cursor: pointer; }
+  .case-item:hover:not(:disabled) { border-color: var(--link); }
+  .case-item:disabled { opacity: 0.5; cursor: default; }
+  .case-item span { display: block; }
+  .case-item .when, .case-player .when, #casePlayer .when { color: var(--text-muted); font-size: 0.72rem; }
+  .case-head { margin: 0 0 0.3rem; font-size: 0.82rem; }
+  .case-region { margin: 0.5rem 0 0.25rem; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+  .case-step-title { font-weight: 600; font-size: 0.8rem; }
+  #caseText p { margin: 0 0 0.35rem; }
+  /* a case's briefing (casebrief.js): the NWS products as issued, a forecast chart, comparison maps */
+  .brief { margin-top: 0.4rem; }
+  .brief-label { font-weight: 600; font-size: 0.74rem; margin: 0.5rem 0 0.2rem; color: #9fc9ff; }
+  .brief-prod { border: 1px solid var(--border); border-radius: 4px; margin: 0.25rem 0; background: rgba(255,255,255,0.03); }
+  .brief-h { font-size: 0.68rem; padding: 0.2rem 0.35rem; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+  .brief-prod pre { white-space: pre-wrap; font: 0.66rem/1.35 ui-monospace, Menlo, monospace; margin: 0; padding: 0.3rem 0.35rem; max-height: 11rem; overflow: auto; }
+  .brief-chart { width: 100%; height: 150px; display: block; background: rgba(0,0,0,0.25); border-radius: 4px; }
+  .brief-note { font-size: 0.62rem; color: var(--text-muted); }
+  .brief figure { margin: 0.35rem 0; } .brief img { width: 100%; border-radius: 4px; display: block; background: #fff; }
+  .brief figcaption { font-size: 0.66rem; color: var(--text-muted); }
+  .case-key { margin: 0 0 0.3rem; padding-left: 1rem; }
+  .case-key li { margin: 0 0 0.15rem; }
+  .case-shows { margin-bottom: 0.1rem !important; }
+  .case-nav { justify-content: space-between; }
+  .card .live { color: var(--accent-amber); }
+  .card .live:empty { display: none; }
+  .card .when { color: var(--link); }
+  .card .when:empty { display: none; }
+  .cams button.on { border-color: var(--link); color: var(--link); }
+  table.column { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin: 0.2rem 0 0.3rem; }
+  table.column th { font-weight: 500; color: var(--text-muted); font-size: 0.68rem; text-align: left; }
+  table.column td { padding: 0 0.2rem; line-height: 1.35; }
+  table.column input { margin: 0; }
+  table.column td.h { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 0.72rem; white-space: nowrap; }
+  table.column th[data-unit] { cursor: pointer; }
+  table.column i.sw { display: inline-block; width: 10px; height: 3px; border-radius: 1px; margin-right: 0.35rem; vertical-align: middle; }
+  table.column tr.focus td:first-child { color: var(--link); font-weight: 600; }
+  .focus-opts { border-top: 1px solid var(--border); padding-top: 0.3rem; }
+  details summary { cursor: pointer; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  button.mini { padding: 0.1rem 0.4rem; font-size: 0.75rem; }
+  kbd { font-size: 0.68rem; border: 1px solid var(--border); border-radius: 3px; padding: 0 0.2rem; }
+  .show-panel { position: absolute; top: 0.6rem; left: 0.6rem; }
+  .panel-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.3rem 0.4rem; margin-bottom: 0.35rem; }
+  .panel-top .model-toggle { margin: 0; gap: 0.5rem; font-size: 0.8rem; }
+  .panel-top .model-toggle .h { color: var(--text-muted); font-size: 0.72rem; }
+  /* The top row wraps instead of clipping: the Guide link and Hide button go to a second line if the model names
+     don't leave room (they ran 81 px past a 272 px panel, user report 2026-09-28). */
+  .panel-links { display: flex; gap: 0.4rem; align-items: center; font-size: 0.78rem; white-space: nowrap; margin-left: auto; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 0 2px; border-bottom: 1px solid var(--border); margin: 0 -0.6rem 0.5rem; padding: 0 0.6rem; }
+  /* No wrapping: "3-D" broke at its hyphen once seven tabs shared the panel. */
+  .tabs button { flex: 1 1 auto; white-space: nowrap; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 0.3rem 0.2rem; font-size: 0.78rem; color: var(--text-muted); }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--link); }
+  .tab[hidden] { display: none; }
+  .row2 { display: flex; gap: 0.3rem 1rem; flex-wrap: wrap; }
+  .windrow { margin: 0.4rem 0 0.1rem; }
+  details.grp { margin-top: 0.35rem; }
+  table.linestyles { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+  table.linestyles td { padding: 0 0.2rem; }
+  table.linestyles input[type=color] { width: 26px; height: 16px; padding: 0; border: 0; background: none; }
+  table.linestyles input[type=range] { width: 100%; }
+  details.grp summary { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; cursor: pointer; }
+  .hint { font-size: 0.72rem; color: var(--text-muted); margin: 0.5rem 0 0; line-height: 1.5; }
+  /* Views: a row in the panel, under its top strip (user request: controls on the left, 2026-09-28); with the
+     panel hidden the row moves beside "Controls" (main.js togglePanel). */
+  .viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem; margin: 0 0 0.4rem; }
+  .viewbar .vlabel { font-size: 0.7rem; color: var(--text-muted); margin-right: 0.15rem; }
+  .viewbar button { font-size: 0.72rem; padding: 0.12rem 0.38rem; background: rgba(36,43,55,0.9); }
+  .viewbar button.on { border-color: var(--link); color: var(--link); }
+  .viewbar.floating { position: absolute; top: 0.6rem; left: 7.2rem; margin: 0; background: rgba(26,31,40,0.9);
+                      border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.4rem; }
+  .show-panel[hidden] { display: none; }
+  button { background: #242b37; color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.55rem; font: inherit; font-size: 0.82rem; cursor: pointer; }
+  button:hover { border-color: var(--link); }
+
+  /* The hidden attribute always wins: class rules like display: flex were
+     overriding it (the model choice stayed on screen in Past year mode). */
+  [hidden] { display: none !important; }
+  .mode-toggle { display: flex; margin-bottom: 0.45rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .mode-toggle button { flex: 1; border: 0; border-radius: 0; padding: 0.35rem 0.5rem; font-weight: 600; background: transparent; }
+  .mode-toggle button + button { border-left: 1px solid var(--border); }
+  .mode-toggle button.on { background: var(--link); color: #0b0f14; }
+  .year-src { color: var(--text-muted); font-size: 0.85em; }
+  .timebar { position: absolute; left: 0.6rem; right: 0.6rem; bottom: 0.6rem; display: flex; gap: 0.5rem; align-items: center;
+             background: rgba(26,31,40,0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.6rem; }
+  .track { position: relative; flex: 1; padding-top: 1.05rem; }
+  .track input[type=range] { width: 100%; margin: 0; display: block; }
+  .nights { position: absolute; left: 0; right: 0; height: 4px; pointer-events: none; }
+  .nights span { position: absolute; top: 0; height: 100%; background: rgba(40,60,120,0.85); border-radius: 2px; }
+  /* Fixed 14 px thumb, so the markers can be placed on the track exactly:
+     the thumb centre runs from 7 px to width - 7 px. */
+  #timeSlider { -webkit-appearance: none; appearance: none; height: 16px; background: transparent; }
+  #timeSlider::-webkit-slider-runnable-track { height: 4px; background: #3a4453; border-radius: 2px; }
+  #timeSlider::-moz-range-track { height: 4px; background: #3a4453; border-radius: 2px; }
+  #timeSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px;
+                                      border-radius: 50%; background: var(--text); border: 0; }
+  #timeSlider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 0; }
+  .marks { position: absolute; left: 7px; right: 7px; top: 0; bottom: 0; pointer-events: none; }
+  .mark { position: absolute; top: 0; bottom: 0; pointer-events: auto; cursor: help; }
+  .mark i { position: absolute; left: -1px; top: 0.85rem; bottom: 0; width: 2px; }
+  .mark b { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; font-size: 0.66rem; font-weight: 600; }
+  .mark-now i { background: #f97316; } .mark-now b { color: #f97316; }
+  .mark-init i { background: var(--link); } .mark-init b { color: var(--link); }
+  .mark-other { opacity: 0.45; }
+  .mark-sat i { background: #c9d1db; } .mark-sat b { color: #c9d1db; }
+  /* the days under the slider (user request 2026-10-09): a tick at each midnight, the day's name centred in its span */
+  .days { position: relative; height: 0.85rem; margin: 0 7px; }
+  .days .dayline { position: absolute; top: -0.55rem; height: 1.3rem; width: 1px; background: rgba(201,209,219,0.45); }
+  .days .day { position: absolute; top: 0.05rem; transform: translateX(-50%); font-size: 0.62rem; color: var(--text-muted); white-space: nowrap; }
+  .loopsat { font-size: 0.7rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.2rem; white-space: nowrap; }
+  .loopsat[hidden] { display: none; }
+  .loopsat select { font-size: 0.7rem; }
+  .tzbtn { min-width: 2.6rem; }
+  .mark-opc i { background: #c2410c; top: auto !important; bottom: 0; height: 7px; width: 3px; left: -1.5px; }
+  /* the chart menu and its arrows, with the opacity slider under them (user request 2026-10-09) */
+  .opcnav { display: inline-flex; flex-direction: column; gap: 0.1rem; align-items: stretch; }
+  .opcnav[hidden] { display: none; }
+  .opcnav .opcrow { display: flex; gap: 0.2rem; align-items: center; }
+  .opcnav select { font-size: 0.75rem; }
+  .opcnav .opclbl input[type=range] { flex: 1; min-width: 3rem; }
+  .status { color: var(--text-muted); font-size: 0.75rem; white-space: nowrap; }
+
+  .grid-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .gl { position: absolute; font-size: 0.7rem; font-weight: 600; color: #1f2937; white-space: nowrap;
+        background: rgba(255,255,255,0.78); border-radius: 3px; padding: 0 0.25rem; line-height: 1.25; }
+  .gl-equator, .gl-tropic { color: #be123c; }
+  .gl.gl-L, .gl.gl-H { font-weight: 800; font-size: 0.8rem; background: rgba(255,255,255,0.85); }
+  .gl.gl-L { color: #c81e1e; } .gl.gl-H { color: #1d4ed8; }
+  /* With an OPC chart on the map, the model's H/L (and place names) lose their white pills, which covered OPC's own
+     H and L at the same spots (user report, 2026-09-28): magenta like the model's lines, outlined to stay legible. */
+  body.opc-on .gl.gl-L, body.opc-on .gl.gl-H { background: none; color: #d6247a; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
+  body.opc-on .gl.pl-city { background: none; text-shadow: 0 0 2px #fff, 0 0 2px #fff; }
+  .gl.pl-city { padding-left: 0.6rem; background: rgba(255,255,255,0.7); }
+  .gl.pl-city::before { content: ""; position: absolute; left: 0.15rem; top: 0.33rem; width: 5px; height: 5px; border-radius: 50%; background: #111827; }
+  .gl.case-mark { color: #fbbf24; background: rgba(15,18,24,0.72); font-weight: 600; }
+  .gl.pl-sea { background: none; font-style: italic; font-weight: 500; color: #1e3a5f; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+  .gl.gl-km { background: rgba(18,22,28,0.8); color: #f5f7fa; font-weight: 500; }
+  .gl.gl-lvl { background: rgba(18,22,28,0.8); color: #9fc9ff; }
+  .gl.gl-focus { background: rgba(18,22,28,0.85); color: #6fb3ff; font-weight: 700; }
+  /* The right-hand column: the probe on top (scrolls inside the space left), the colour keys at the bottom, so
+     they can never overlap (user report, 2026-09-28). Ends just above the timebar. */
+  .dock { position: absolute; top: 3.6rem; right: 0.6rem; bottom: calc(var(--tb, 3.4rem) + 1.1rem); width: 322px;
+          display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; pointer-events: none; }
+  .dock > * { pointer-events: auto; }
+  .probe.folded > :not(.probe-head) { display: none; }
+  .probe { flex: 0 1 auto; min-height: 0; width: 322px; overflow: auto;
+           background: rgba(26,31,40,0.95); border: 1px solid #f97316; border-radius: 6px; padding: 0.45rem 0.55rem; font-size: 0.75rem; }
+  .probe[hidden] { display: none; }
+  .probe h3 { font-size: 0.75rem; margin: 0.5rem 0 0.2rem; }
+  .probe h3 .muted, .probe .muted { color: var(--text-muted); font-weight: 400; }
+  .probe-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+  .probe-when { color: var(--text-muted); }
+  .probe-svg { display: block; background: #12161c; border-radius: 3px; }
+  .probe-svg .grid { stroke: #2a323f; stroke-width: 1; }
+  .probe-svg .ax { fill: #8a94a3; font-size: 9px; }
+  .probe-svg .ax.lab { fill: #c9d1db; }
+  .probe-svg polyline { fill: none; stroke-width: 1.8; }
+  .probe-svg .t { stroke: #f87171; fill: #f87171; } .probe-svg polyline.t { fill: none; }
+  .probe-svg .td { stroke: #4ade80; fill: #4ade80; } .probe-svg polyline.td { fill: none; }
+  .probe-svg polyline.m0 { stroke: #6fb3ff; } .probe-svg polyline.m1 { stroke: #d99b3f; stroke-dasharray: 4 3; }
+  .probe-svg line.now { stroke: #f97316; stroke-width: 1.5; } .probe-svg line.shown { stroke: #f5f7fa; stroke-width: 1; stroke-dasharray: 2 2; }
+  .probe-key .m0 { color: #6fb3ff; } .probe-key .m1 { color: #d99b3f; } .probe-key .nowk { color: #f97316; } .probe-key .shownk { color: #f5f7fa; }
+  .probe-tab td.up { color: #60a5fa; } .probe-tab td.down { color: #d97706; }
+  .probe-tab { width: 100%; border-collapse: collapse; margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
+  .probe-tab th { color: var(--text-muted); font-weight: 500; text-align: right; } .probe-tab td { text-align: right; padding: 0 0.15rem; }
+  .probe-tab tr.below td { color: var(--text-muted); font-style: italic; } .probe-tab tr.sfc td { border-top: 1px solid var(--border); }
+  .probe-sfc { margin: 0.2rem 0 0; color: var(--text-muted); }
+  .probe-opt { display: flex; gap: 0.3rem; align-items: center; }
+  #probeMeteo { cursor: pointer; }
+  .slicechart { position: absolute; left: calc(300px + 1.4rem); right: calc(240px + 1.3rem); bottom: calc(var(--tb, 3.4rem) + 1.1rem); height: 270px; display: flex; flex-direction: column;
+                background: rgba(26,31,40,0.95); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.45rem; }
+  .slicechart[hidden] { display: none; }
+  .slicechart.map { height: 420px; }            /* the horizontal plane's map chart: taller, so the map keeps its shape */
+  /* With the probe open, the chart ends left of the right-hand column (probe is 322 px wide). */
+  .stage:has(#probe:not([hidden])) .slicechart { right: calc(322px + 1.3rem); }
+  .sc-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+  .slicechart canvas { flex: 1; width: 100%; min-height: 0; cursor: crosshair; }
+  .sc-hover { font-size: 0.72rem; color: var(--text); min-height: 1.1em; }
+  .compass { position: absolute; top: 0.6rem; right: 0.6rem; width: 44px; height: 44px; border-radius: 50%;
+             background: rgba(26,31,40,0.85); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+  .compass .needle { position: relative; width: 14px; height: 28px; transition: transform 0.1s; }
+  .compass .needle b { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 0.62rem; color: var(--text); }
+  .readout { position: absolute; pointer-events: none; max-width: 360px; font-size: 0.75rem; line-height: 1.35;
+             background: rgba(18,22,28,0.92); border: 1px solid var(--accent-amber); border-radius: 5px; padding: 0.35rem 0.5rem; }
+  .readout[hidden] { display: none; }
+  .readout .muted { color: var(--text-muted); }
+  .legend { flex: none; margin-top: auto; width: 240px; }
+  .legend-row { background: rgba(26,31,40,0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.5rem; margin-top: 0.3rem; font-size: 0.75rem; }
+  .legend-bar { display: block; height: 10px; border-radius: 2px; margin: 0.2rem 0; }
+  .legend-ends { display: flex; justify-content: space-between; color: var(--text-muted); }
+  .missing { color: var(--accent-amber); font-size: 0.75rem; margin-top: 0.4rem; }
+  .note { font-size: 0.72rem; line-height: 1.35; opacity: 0.8; margin: 0.3rem 0 0.2rem; }
+  .simhint { font-size: 0.68rem; line-height: 1.3; opacity: 0.7; margin: 0 0 0.45rem; }
+  .simctl { display: block; margin-top: 0.3rem; } .simctl input[type=range] { width: 100%; display: block; }
+  .simval { font-size: 0.72rem; color: #9fc9ff; }
+  .simpresets { flex-wrap: wrap; gap: 0.25rem; }
+  .gl.gl-sun { color: #3a2a00; background: rgba(255,213,74,0.92); font-weight: 700; }
+  .brief-charts .bc-bar { display: flex; align-items: center; gap: 0.3rem; margin: 0.3rem 0; }
+  .brief-charts .bc-series { flex: 1 1 auto; min-width: 0; font-size: 0.75rem; }
+  .brief-charts .bc-n { font-size: 0.7rem; color: var(--text-muted); min-width: 2.6rem; text-align: center; }
+  .brief-charts .bc-img { width: 100%; height: auto; display: block; background: #fff; border-radius: 3px; }
+  .gl.gl-balloon { background: rgba(215,38,30,0.9); color: #fff; font-weight: 700; }
+  .today { margin-bottom: 0.6rem; }
+  .today-h { font-weight: 700; font-size: 0.8rem; margin: 0.2rem 0 0.3rem; }
+  .muted-note { font-weight: 400; color: var(--text-muted); font-size: 0.72rem; }
+  .today-item { display: block; width: 100%; text-align: left; margin: 0 0 0.3rem; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.75rem; line-height: 1.3; }
+  .today-item b { display: block; font-size: 0.78rem; }
+  .today-item span { color: var(--text-muted); }
+  .today-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0; }
+  .today-nav { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
+  #todayText p { font-size: 0.8rem; line-height: 1.4; margin: 0.3rem 0; }
+  .gl.gl-note { background: rgba(15,20,28,0.88); font-weight: 700; font-size: 0.8rem; }
+  .gl.gl-note-0 { color: #f0a830; } .gl.gl-note-1 { color: #ff6b6f; } .gl.gl-note-2 { color: #6fb6ff; } .gl.gl-note-3 { color: #fff; } .gl.gl-note-4 { color: #111827; background: rgba(255,255,255,0.9); }
+  .gl.gl-parcel { background: rgba(20,184,166,0.92); color: #fff; font-weight: 700; }
+  .gl.gl-back { background: rgba(28,143,199,0.92); color: #fff; font-weight: 700; }
+  .gl.gl-smoke { background: rgba(93,88,80,0.92); color: #fff; font-weight: 700; }
+  .gl.gl-force { background: rgba(20,24,30,0.85); font-weight: 700; }
+  .gl.gl-force-push { color: #ff6b5e; } .gl.gl-force-spin { color: #79adff; } .gl.gl-force-friction, .gl.gl-force-rest { color: #ccc; }
+  .gl.gl-force-wind { color: #fff; } .gl.gl-force-geostrophic { color: #ffd633; }
+  .gl.gl-lift { background: rgba(240,244,248,0.92); color: #1d2733; font-weight: 700; }
+  .gl.gl-ring { background: rgba(255,212,59,0.92); color: #1d1d1d; font-weight: 700; }
+  .droptools { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0; }
+  .dropopts { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; }
+  .dropopts .dropopt { font-size: 0.75rem; white-space: normal; }
+  .dropopts select { font-size: 0.75rem; }
+  #dropCard div[data-tool] { font-size: 0.8rem; line-height: 1.35; }
+  .droptools button.on { background: var(--link); color: #fff; }
+  .dropopt { font-size: 0.7rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.2rem; white-space: nowrap; }
+  .gl.gl-polar { color: #0b2a44; background: rgba(159,212,255,0.9); }
+  .gl.gl-model { background: rgba(18,22,28,0.82); color: #f5f7fa; }
+  .gl.gl-model.gl-L { background: rgba(255,255,255,0.9); color: #c81e1e; font-weight: 800; } .gl.gl-model.gl-H { background: rgba(255,255,255,0.9); color: #1d4ed8; font-weight: 800; }
+  .gl.gl-model.gl-up { color: #ffb070; } .gl.gl-model.gl-down { color: #9fd4ff; } .gl.gl-model.gl-jet { color: #ff8a80; }
+  .gl.gl-tb { background: rgba(230,232,236,0.85); color: #333; font-style: italic; font-weight: 500; }
+  .gl.gl-tb.gl-tbwind { color: #555; }
+  .gl.gl-arrow { background: rgba(255,213,74,0.92); color: #3a2a00; }
+  #simCard h4 { margin: 0.3rem 0 0.2rem; font-size: 0.8rem; }
+  #simCard table { font-size: 0.7rem; border-collapse: collapse; margin: 0.2rem 0; } #simCard td { padding: 0.1rem 0.3rem 0.1rem 0; vertical-align: top; }
+  #simCard td:first-child { font-weight: 600; white-space: nowrap; }
+  #simCard p { font-size: 0.72rem; line-height: 1.35; margin: 0.25rem 0; } #simCard .simnote { color: #9fc9ff; }
+
+  .placeholder { max-width: 720px; margin: 3rem auto; padding: 0 1.25rem; color: var(--text-muted); }
+
+  @media (max-width: 700px) {
+    .masthead h1 .sub, .masthead .disclaimer { display: none; }
+    .masthead .mini-disclaimer { display: block; }
+    .panel { width: auto; right: 0.6rem; max-height: 55%; }
+    .hud { top: auto; bottom: 4.2rem; max-width: calc(100% - 1.2rem); }
+    .hud .interp { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .legend { display: none; }
+    .dock { left: 0.6rem; width: auto; top: calc(var(--panelb, 6rem) + 0.4rem); bottom: calc(var(--tb, 6rem) + var(--hud, 4rem) + 1.6rem); }
+    .probe { width: 100%; }
+    .slicechart { left: 0.6rem; right: 0.6rem; height: 220px; bottom: 4.2rem; }
+    /* The slider gets its own full-width row, so its markers don't pile up. */
+    .timebar { flex-wrap: wrap; row-gap: 0.3rem; }
+    .timebar .track { order: -1; flex-basis: 100%; }
+    .hud { bottom: calc(var(--tb, 6rem) + 1.1rem); }
+    .slicechart { bottom: calc(var(--tb, 6rem) + 1.1rem); }
+  }
+  .panel.folded .tab, .panel.folded .missing { display: none; }
+  .mini-disclaimer { display: none; font-size: 0.7rem; color: var(--text-muted); margin: 0; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="mh-row">
+    <h1>North Pacific 3D <span class="sub">the Pacific atmosphere, past 24 h to 7 days ahead</span></h1>
+    <details class="about"><summary>About</summary>
+      <p>Fields are drawn at their true height with vertical exaggeration. Frames between the models' real steps (3-hourly,
+      6-hourly after 6 days) are blended for smooth motion and are labelled "interpolated"; past hours come from earlier
+      model runs. Model data: NOAA GFS; ECMWF IFS open data &copy; ECMWF, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+      Satellite: NOAA GOES-18 and JMA Himawari-9 via NOAA Open Data. See also the
+      <a href="https://fp-sea.github.io/opc-sa-reconstruct-live/">OPC North Pacific chart gallery</a> (the orange box is its chart area),
+      and the <a href="guide.html" target="_blank" rel="noopener">guide</a>.</p>
+    </details>
+  </div>
+  <p class="mini-disclaimer">Educational, raw model output — not official, not for navigation.</p>
+  <p class="disclaimer">Educational visualization of raw model output — not an official product, not for navigation. Data: NOAA GFS · ECMWF open data © ECMWF (CC BY 4.0) · NOAA/JMA satellites.</p>
+  <p class="times" id="timesLine"></p>
+  <span class="stale" id="staleBadge" hidden></span>
+</header>
+
+
+<div class="stage">
+  <div id="atmos3d" data-data="atmos3d"></div>
+  <div class="grid-labels" id="gridLabels"></div>
+  <div class="compass" title="North, at the centre of the view"><div class="needle" id="compassNeedle"><svg viewBox="0 0 20 40" width="14" height="28"><path d="M10 0 L17 20 L10 16 L3 20 Z" fill="#e0485f"/><path d="M10 40 L3 20 L10 24 L17 20 Z" fill="#8a94a3"/></svg><b>N</b></div></div>
+
+  <div class="coach" id="coach" hidden>
+    <div class="coach-hole" id="coachHole"></div>
+    <div class="coach-tip" id="coachTip"><p id="coachText"></p>
+      <div class="coach-nav"><span id="coachStep"></span><button class="mini" id="coachSkip">Skip</button><button class="mini" id="coachNext">Next</button></div></div>
+  </div>
+  <div class="zoombox" id="zoomBox" hidden role="dialog" aria-label="Chart, full size">
+    <div class="zoombar"><span id="zoomCaption"></span><span class="zoomhint">click the chart: fit / full size · Esc closes</span><button class="mini" id="zoomClose" title="Close (Esc)">✕</button></div>
+    <div class="zoomframe" id="zoomFrame"><img id="zoomImg" alt=""></div>
+  </div>
+  <div class="newbuild" id="newBuild" hidden role="status"><span id="newBuildText"></span>
+    <button class="mini" id="newBuildReload" title="Reload with the new forecast, keeping this view">Reload</button>
+    <button class="mini" id="newBuildClose" title="Not now">✕</button></div>
+  <div class="hud">
+    <div class="valid" id="hudValid">&nbsp;</div>
+    <div class="meta"><span id="hudRun"></span> &middot; <span id="hudLead"></span></div>
+    <span class="interp" id="hudInterp" hidden></span>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="mode-toggle" id="modeToggle" hidden role="group" aria-label="What to explore">
+      <button data-mode="forecast" class="on" title="The last 24 hours and the 7-day forecast, from the newest model runs">Forecast</button>
+      <button data-mode="year" title="The past year: a real GFS analysis for every day of the last 365, set against the 1991–2020 normal">Past year</button>
+      <button data-mode="sim" title="A simplified model of the whole atmosphere, driven only by sunlight: change the planet (rotation, tilt, seasons, heating) and watch the circulation respond">Simulate</button>
+    </div>
+    <div class="panel-top">
+      <span class="year-src" id="yearSrc" hidden title="The Past year mode shows NOAA's GFS analysis at 00 UTC each day (and NOAA OISST for observed sea temperature)">GFS analyses · 00 UTC daily</span>
+      <div class="model-toggle" id="modelToggle" title="Which model's data is shown, and its run. Press M to flip between them at the same time."></div>
+      <span class="panel-links"><a href="#" id="startHere" title="A short walk round the page">Start here</a> · <a href="guide.html" target="_blank" rel="noopener" title="How to read the explorer, and the weather behind it">Guide ↗</a>
+      <button class="mini" id="hidePanel" title="Hide the controls to see the whole map (key: H). Bring them back with the Controls button.">Hide ✕</button></span>
+    </div>
+    <div class="viewbar" id="viewbar" aria-label="Views" title="Where the camera looks from; works from any tab">
+      <span class="vlabel">View</span>
+      <button data-view="opc" title="OPC's North Pacific chart area from above, like their charts">OPC chart</button>
+      <button data-view="domain" title="The whole data area, 20°S to 65°N, from above">Whole</button>
+      <button data-view="oblique" title="The OPC chart area in 3-D, from the south">Oblique</button>
+      <button data-view="low" title="A low pass over the OPC area">Low pass</button>
+      <button data-view="globe" title="The data draped on the curved Earth; drag to spin it">Globe</button>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="explore" title="Guided questions about the Pacific atmosphere">Explore</button>
+      <button role="tab" data-tab="drop" title="Drop a marble, a balloon, a smoke source or a ring of balloons on the map, or trace where the air came from, and watch the air move">Drop</button>
+      <button role="tab" data-tab="sim" hidden title="The simulator's controls">Simulate</button>
+      <button role="tab" data-tab="cases" title="Case studies: real events of the past year, walked through step by step">Cases</button>
+      <button role="tab" data-tab="year" hidden title="What the past year's maps show">Show</button>
+      <button role="tab" data-tab="layers" title="Which levels, what they show, and their shape">Layers</button>
+      <button role="tab" data-tab="slice" title="Explore the atmosphere in 3-D: pick a region (a vertical wall, a horizontal layer, a box, or all of it) and show a slice plane, a volume fill and particles inside it">3&#8209;D</button>
+      <button role="tab" data-tab="map" title="Satellite, map overlays and orientation aids">Map</button>
+      <button role="tab" data-tab="style" title="Line colours and widths, particles and barbs">Style</button>
+      <button role="tab" data-tab="share" title="Tours, and pictures or animations of the view to save">Share</button>
+    </nav>
+
+    <section class="tab" data-tab="explore">
+      <div class="today" id="todayBox">
+        <p class="today-h">Today's lessons <span class="muted-note">found in this forecast</span></p>
+        <div id="todayList"></div>
+        <div id="todayLesson" hidden>
+          <p class="when" id="todayStepCount"></p>
+          <p class="case-step-title" id="todayStepTitle"></p>
+          <div id="todayText"></div>
+          <div class="today-actions" id="todayActions"></div>
+          <p class="brief-note" id="todayHint"></p>
+          <div class="today-nav"><button class="mini" id="todayPrev">◀ Back</button><button class="mini" id="todayNext">Next ▶</button><button class="mini" id="todayAll">All lessons</button></div>
+        </div>
+      </div>
+      <p class="today-h">Or explore a question</p>
+      <select id="questionSel" title="A question about the Pacific atmosphere, and the settings that answer it. Change anything afterwards and it becomes Custom."></select>
+      <div class="card" id="questionCard">
+        <div id="qLook"></div>
+        <p class="when" id="qWhen"></p>
+        <p class="live" id="qNote"></p>
+        <a id="qWhy" href="guide.html" target="_blank" rel="noopener">Why? →</a>
+      </div>
+      <p class="hint">Click the map to <b>probe</b> a spot · <kbd>Space</kbd> play · <kbd>←</kbd><kbd>→</kbd> step · <kbd>M</kbd> other model · <kbd>B</kbd> blink the model fill</p>
+    </section>
+
+    <section class="tab" data-tab="drop" hidden>
+      <p class="note">Pick a tool, then click the map. Everything follows the <b>focus level</b> (Layers tab) and, when you press <b>Play</b>, the changing weather, hour by hour.</p>
+      <div class="droptools">
+        <button class="mini" id="dropMarble" title="A marble that rolls downhill on the focus level's surface: it runs into troughs and settles in lows, so you can feel the shape">⚪ marble</button>
+        <button class="mini" id="dropBalloon" title="A constant-level balloon: it floats on the focus level, drifting with that level's wind, and leaves a trail (like the balloons scientists fly for weeks at one pressure level)">🎈 balloon</button>
+        <button class="mini" id="dropParcelBtn" title="An air parcel: a bit of the air itself, carried by the wind at its own height and rising or sinking with the model's vertical motion (3-D). It starts at the focus level's height.">● air parcel</button>
+        <button class="mini" id="dropBack" title="Where did this air come from? Click a point: the air arriving there, traced backward through the winds of the hours before">↶ where from?</button>
+        <button class="mini" id="dropSwell" title="Where's this swell from? Click a spot at sea: the swell arriving there, traced back at its own speed to the storm that made it">〰 swell from?</button>
+        <button class="mini" id="dropSmoke" title="A smoke source: a puff let go every model hour, each carried by the wind">💨 smoke</button>
+        <button class="mini" id="dropRing" title="A ring of 24 balloons: watch it stretch, shrink or spread">◯ ring</button>
+        <button class="mini" id="dropLift" title="Lift a parcel of surface air: where does its cloud form, and how high does it go before the air around it stops it? Click, then click the map.">⬆ lift</button>
+        <button class="mini" id="dropForces" title="The forces on the air at a point on the focus level: the pressure push, Earth's spin and friction, with the wind and the geostrophic wind. Click, then click the map.">➹ forces</button>
+        <button class="mini" id="dropClear" title="Remove everything dropped">clear</button>
+      </div>
+      <div class="dropopts">
+        <label class="dropopt" title="On: smoke, rings and traced paths stay on the focus level, carried by that level's wind. Off: they start at the focus level's height and then rise and sink with the model's vertical motion, carried by the wind at whatever height they reach (drawn at true height). Set when you drop. (The balloon always stays on its level; the air parcel always moves in 3-D.)"><input type="checkbox" id="dropLevel" checked> smoke, rings, where-from: stay on the focus level <span style="opacity:0.7">(off: 3-D)</span></label>
+        <label class="dropopt" title="On: the marble feels only the troughs and ridges, highs and lows -- each latitude's average taken out, so the steady slope toward the pole is gone. Off: on the raw field, slope toward the pole and all (at 500 mb marbles then run north; at the surface they gather in the low-pressure belts). Toggle to compare."><input type="checkbox" id="dropWaves" checked> marble: troughs &amp; ridges only</label>
+        <label class="dropopt" title="How far back to trace. From &quot;now&quot; the data goes back 24 h; from a forecast time the earlier forecast hours count too.">where from: trace back <select id="dropBackH"><option value="24">24 h</option><option value="48">48 h</option><option value="72" selected>72 h</option><option value="120">5 days</option><option value="168">7 days</option></select></label>
+        <label class="dropopt" title="Where the traced air arrives: on the focus level (or in 3-D from it, with 'stay on the focus level' off), or at three heights above the ground at once (500 m, 1.5 km, 5.5 km), always in 3-D, as NOAA's HYSPLIT shows it: air at different heights often comes from very different places.">where from: arrive <select id="dropBackMode"><option value="focus" selected>on the focus level</option><option value="three">at three heights</option></select></label>
+        <label class="dropopt" title="On: each smoke puff also takes a random step for turbulence, so the plume widens as real smoke does; in 3-D, puffs inside the boundary layer (GFS's depth) are stirred through it and held under its top. Off: each puff follows the wind exactly, a thin thread. Toggle to compare."><input type="checkbox" id="dropSpread" checked> smoke: turbulent spread and mixing</label>
+        <label class="dropopt" title="Fly it as a weather balloon (radiosonde): instead of the column straight up, a balloon released at the ground rises 5 m/s and drifts with the wind, reading each level where it crosses it -- like the ones launched twice a day from Līhuʻe and Hilo -- and the Drop tab adds the wind at each level. It's launched at the time on screen and stays as it was (the plain lift follows Play)."><input type="checkbox" id="dropLiftFly"> lift: fly it as a weather balloon (drift and winds)</label>
+        <label class="dropopt" title="Warm the surface air before lifting it, as the afternoon sun does over land (over the sea the air barely warms through the day). A couple of degrees can turn a capped cloud into a shower.">lift: warm the surface air <select id="dropLiftDT"><option value="0" selected>not at all</option><option value="2">+2 °C</option><option value="4">+4 °C</option><option value="6">+6 °C</option></select></label>
+        <label class="dropopt" title="How far each of the ring's balloons starts from its centre">ring: radius <select id="dropRingKm"><option value="150">150 km</option><option value="300" selected>300 km</option><option value="600">600 km</option><option value="1000">1000 km</option></select></label>
+      </div>
+      <div id="dropSondeBox" hidden>
+        <p class="brief-label">The weather balloon's sounding (the latest launch): temperature across, height up</p>
+        <canvas class="brief-chart" style="width:100%;height:220px"></canvas>
+        <p class="brief-note"><span style="color:#ff6b6b">━ temperature</span> <span style="color:#51cf66">━ dew point</span> <span style="color:#fff">┅ the surface parcel lifted</span>; orange: buoyant; blue: it must be pushed</p>
+        <p class="brief-note" id="dropSondeText"></p>
+      </div>
+      <div id="dropForcesBox" hidden>
+        <p class="brief-label">The forces on the air (the latest "forces" point)</p>
+        <p class="brief-note" id="dropForcesText"></p>
+      </div>
+      <div id="dropParcel" hidden>
+        <p class="brief-label">The lifted parcel (the latest "lift"): temperature across, height up</p>
+        <canvas class="brief-chart" style="width:100%;height:220px"></canvas>
+        <p class="brief-note"><span style="color:#ff6b6b">━ the air around</span> <span style="color:#51cf66">━ its dew point</span> <span style="color:#fff">┅ the parcel</span>; orange: warmer than the air around (it rises by itself); blue: colder (it must be pushed)</p>
+        <p class="brief-note" id="dropParcelText"></p>
+      </div>
+      <div id="dropJourney" hidden>
+        <p class="brief-label">The air's journey (the latest "where from?"): height, temperature and humidity along the way</p>
+        <canvas class="brief-chart" style="width:100%;height:240px"></canvas>
+        <p class="brief-note" id="dropJourneyKey"></p>
+      </div>
+      <div class="card" id="dropCard">
+        <div data-tool="marble"><b>Marble.</b> It rolls downhill on the focus level: into the troughs at 500 mb, into the lows at the surface. That's the <i>shape</i>; real air doesn't roll downhill, it runs <i>along</i> the lines, turned by the Earth's spin. Drop a few and watch them gather. <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="balloon" hidden><b>Constant-level balloon.</b> It floats on the focus level, like the balloons scientists fly for weeks at one pressure level, drifting with that level's wind and leaving a trail. Press Play and it travels through time with the weather. Try one on each side of the jet, or upwind of a low. (A real weather balloon rises until it bursts: tick <i>fly it as a weather balloon</i> under lift.) <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="parcel" hidden><b>Air parcel.</b> A bit of the air itself: carried by the wind at its own height, it also rises and sinks with the model's vertical motion, starting at the focus level's height. Drop one beside a balloon and press Play: ahead of a trough the parcel climbs into faster wind, under a ridge it sinks, and the two part. Its label gives its height and ↑ rising, ↓ sinking. <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="back" hidden><b>Where did this air come from?</b> Click a spot: the blue line is the path the air arriving there took, traced backward hour by hour, a dot every day. Is the moist air over Hawaiʻi from the tropics? Did that cold air come off Siberia? In 3-D, see whether it came down from aloft (sinking air dries and warms) or up from the surface. Move the time forward first to trace further back. Choose <i>arrive at three heights</i> to trace air arriving 500 m, 1.5 km and 5.5 km up at once; the chart above shows each path's height, temperature and humidity on the way. <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="swell" hidden><b>Where's this swell from?</b> Click a spot at sea, say off a north shore: the swell arriving there at the time on screen is traced backward at its own speed (longer-period swell travels faster: 14 s swell about 21 kt, 940 km a day) along the great circle it came on (in deep water swell keeps to great circles), with a dot every day; the wave model gives the seas at each point at its own earlier time. The red ball marks where the seas were biggest on the way: most likely the storm that made it, often days earlier and thousands of km away. Swell from the far side of the Pacific can take a week; move the time forward to trace further back (<i>trace back</i> sets how far). <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="smoke" hidden><b>Smoke.</b> A source that lets go of a puff every model hour, each carried by the wind: think of Kīlauea's vog or a wildfire. Press Play: a steady wind draws a thin plume; a turning wind bends it; in 3-D, wind changing with height tears it apart. With <i>turbulent spread</i> on, the plume widens as real smoke does, and in 3-D a surface source stays trapped under the boundary layer's top. (On a mountain island the global model's smooth terrain lifts it over the top; the real trades mostly go around.) <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="lift" hidden><b>Lift a parcel.</b> Click a spot: a parcel of its surface air is lifted through the model's column. It cools as it rises (9.8 °C per km) until its water vapour condenses, its <b>cloud base</b>; above that it cools more slowly, warmed by the condensing. Where it's warmer than the air around it, it rises by itself; where colder, it stops. Over the trades, it usually stops under the <b>trade inversion</b> (1.5–2.5 km): flat-topped cumulus, and the lid that squeezes wind through the channels. Try a Kona low or a front for a deep, buoyant column, and <i>warm the surface air</i> to see the afternoon sun build showers. Press Play: it follows the changing column. Tick <i>fly it as a weather balloon</i> to launch a radiosonde instead: it drifts with the wind as it rises (about 35 minutes to the top of the data), reads each level on the way and adds the winds. <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="forces" hidden><b>Forces on the air.</b> Click a spot: arrows show what pushes the air there. <span style="color:#ff5a4d">Red</span>: the pressure push, from high toward low, stronger where the lines are close. <span style="color:#5a99ff">Blue</span>: Earth's spin, at right angles to the wind (to its right in the north). <span style="color:#bbb">Grey</span>: what's left: friction at the surface. White: the wind; yellow: the geostrophic wind, where push and spin balance. Aloft the wind runs nearly along the height lines (push and spin balance); at the surface, friction slows it and turns it across the isobars toward the low. Switch the focus level (Layers) to compare. <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+        <div data-tool="ring" hidden><b>Ring of balloons.</b> 24 balloons in a circle. Press Play: near a front it stretches long and thin (deformation); drawn into a low its area shrinks (the air converges and must rise); under a high it spreads out (the air diverges as it sinks). The label gives its area against the start. <a href="guide.html#drop" target="_blank" rel="noopener">More →</a></div>
+      </div>
+    </section>
+
+    <section class="tab" data-tab="sim" hidden>
+      <p class="note">A small model of a planet's atmosphere, heated only by the Sun. Change the planet and watch the winds reorganise. It isn't the real weather (that's the Forecast mode), and it has no land, storms or clouds yet.</p>
+      <label class="simctl" title="The 2-D model averages the atmosphere round each latitude circle (fast, clear cells; no storms). The 3-D model is a global model on a 64 × 32 grid and 6 levels that makes its own storms (about a model day a second)">Model <select id="simModel">
+        <option value="2d">2-D: averaged round the planet (fast)</option>
+        <option value="3d">3-D: with storms (dry; continents optional)</option>
+      </select></label>
+      <h3>Lessons</h3>
+      <label class="simctl"><select id="simLesson" title="Guided steps from sunlight to Earth's circulation"><option value="">Free play: set it up yourself</option></select></label>
+      <div id="simPlayer" hidden>
+        <div class="cams"><button class="mini" id="simPrev" title="Previous step">◀</button><span class="simval" id="simStepNo"></span><button class="mini" id="simNext" title="Next step">▶</button></div>
+        <div class="qcard" id="simCard"></div>
+      </div>
+      <label class="simctl"><input type="checkbox" id="simLabels"> <span id="simLabelsText">labels on the model (its cells, rising and sinking air, winds)</span></label>
+      <label class="simctl" id="simArrowsWrap"><input type="checkbox" id="simArrows"> Coriolis arrows (grey: without spin; yellow: the model's air)</label>
+      <label class="simctl"><input type="checkbox" id="simTextbook"> Earth's textbook three cells, for comparison (grey)</label>
+      <h3>Quick set-ups</h3>
+      <div class="cams simpresets">
+        <button class="mini" data-simpreset="nospin" title="A planet that doesn't spin: one big cell each side of the equator">No spin</button>
+        <button class="mini" data-simpreset="earth" title="Earth's spin, tilt and heating at the March equinox">Earth, March</button>
+        <button class="mini" data-simpreset="june" title="Earth at the June solstice: the Sun overhead at 23.4°N">Earth, June</button>
+        <button class="mini" data-simpreset="december" title="Earth at the December solstice: the Sun overhead at 23.4°S">Earth, December</button>
+        <button class="mini" data-simpreset="fast" title="Spinning 4 times as fast as Earth (a 6-hour day)">Fast spin</button>
+        <button class="mini" data-simpreset="notilt" title="No tilt: the Sun stays over the equator all year">No tilt</button>
+      </div>
+      <h3>The planet</h3>
+      <label class="simctl">Spin <input type="range" id="simRot" min="-1" max="4" step="0.25"> <span class="simval" id="simRotVal"></span></label>
+      <p class="simhint">Spin turns moving air sideways (the Coriolis effect): to the right in the north, the left in the south. Without it, air flows straight from the hot equator to the cold poles.</p>
+      <label class="simctl">Tilt of the axis <input type="range" id="simTilt" min="0" max="90" step="0.5"> <span class="simval" id="simTiltVal"></span></label>
+      <p class="simhint">Tilt makes seasons: over a year the Sun's overhead point moves between the tilt's latitude north and south.</p>
+      <label class="simctl">Date <input type="range" id="simDay" min="1" max="365" step="1"> <span class="simval" id="simDayVal"></span></label>
+      <label class="simctl"><input type="checkbox" id="simSeasons"> let the seasons run (the date moves on by itself)</label>
+      <label class="simctl" id="simLandRow" hidden><input type="checkbox" id="simLand"> Earth's continents: land warms and cools within days (the sea takes weeks) and is rougher; best with the seasons running</label>
+      <h3>The Sun's heating</h3>
+      <label class="simctl">Equator warmer than the poles by <input type="range" id="simContrast" min="10" max="100" step="5"> <span class="simval" id="simContrastVal"></span></label>
+      <p class="simhint">The temperature difference the sunlight alone would make. More difference, stronger winds.</p>
+      <label class="simctl">Surface heat storage <input type="range" id="simInertia" min="5" max="120" step="5"> <span class="simval" id="simInertiaVal"></span></label>
+      <p class="simhint">How long the surface takes to warm up or cool down. Oceans store heat, so their seasons come later and are milder; this matters once the seasons run.</p>
+      <h3>What you see</h3>
+      <label class="simctl">Particles <input type="range" id="simCount" min="1000" max="40000" step="1000"> <span class="simval" id="simCountVal"></span></label>
+      <label class="simctl">Particle speed <input type="range" id="simPdays" min="0.1" max="2" step="0.1"> <span class="simval" id="simPdaysVal"></span></label>
+      <p class="simhint">How fast the particles travel through the winds (separate from how fast the model's time runs). Slower is easier to follow; faster shows the paths.</p>
+      <label class="simctl">Particles at <select id="simBand">
+        <option value="all">all heights</option>
+        <option value="low">near the ground (below 1.5 km): the surface winds</option>
+        <option value="jet">jet-stream level (8–12.5 km)</option>
+      </select></label>
+      <label class="simctl">Particle size <input type="range" id="simSize" min="1" max="7" step="0.5"> <span class="simval" id="simSizeVal"></span></label>
+      <label class="simctl">Brightness <input type="range" id="simOpacity" min="0.2" max="1" step="0.05"> <span class="simval" id="simOpacityVal"></span></label>
+      <label class="simctl">Tails <input type="range" id="simTail" min="0" max="1.5" step="0.05"> <span class="simval" id="simTailVal"></span></label>
+      <p class="simhint">A tail is a short line back along the particle's path: longer tails show the flow's shape; none shows just the dots.</p>
+      <label class="simctl" id="simFlowRow" hidden><input type="checkbox" id="simFlow"> flow lines of the wind near the ground (faint where each starts, bright where it's heading)</label>
+      <div id="simFillRow" hidden>
+        <label class="simctl">Colour on the globe <select id="simFill">
+          <option value="tlow">temperature near the ground</option>
+          <option value="tmid">temperature at mid-levels (about 4 km)</option>
+          <option value="ps">surface pressure (highs and lows)</option>
+          <option value="none">none</option>
+        </select></label>
+      </div>
+      <label class="simctl" id="simMeanRow" hidden><input type="checkbox" id="simMean"> chart: the last 30 days' average (where the cells show; any one day is mostly storms)</label>
+      <label class="simctl" id="simSlabWrap"><input type="checkbox" id="simSlabOn"> particles in a north–south slab at the globe's edge, seen side-on (to watch the air rise, sink and turn)</label>
+      <div id="simSlabRow">
+        <label class="simctl">Slab width <input type="range" id="simSlabW" min="5" max="90" step="5"> <span class="simval" id="simSlabWVal"></span></label>
+        <button class="mini" id="simSlabHere" title="Put the slab at the right-hand edge of the globe as you now see it, side-on, so the rising and sinking show">Put the slab side-on to me</button>
+      </div>
+      <label class="simctl">Heights stretched <select id="simVex"><option value="40">×40</option><option value="100">×100</option><option value="200">×200</option></select></label>
+      <label class="simctl">Rising, sinking and north–south motion shown <select id="simExag"><option value="10">×10</option><option value="30">×30</option><option value="100">×100</option></select> faster</label>
+      <p class="simhint">The overturning is slow (air rises a few centimetres a second), so the particles show it faster. The east–west wind is shown at its true speed.</p>
+      <label class="simctl"><input type="checkbox" id="simSun"> the Sun, where it's overhead on this date, and the edges of 24-hour daylight and polar night</label>
+      <label class="simctl"><input type="checkbox" id="simMap"> Earth's map, for reference only (the model has no land yet)</label>
+      <h3>Running</h3>
+      <div class="cams">
+        <button class="mini" id="simPause">❚❚ Pause</button>
+        <select id="simSpeed" title="How fast model time runs"><option value="1">1 day a second</option><option value="5">5 days a second</option><option value="15">15 days a second</option></select>
+        <button class="mini" id="simRest" title="Back to still air, heated but not yet moving, and watch the circulation build">Start from still air</button>
+      </div>
+      <p class="simhint">After you change a setting the model fast-forwards (about 50 model days in a second or two) to the new balance. "Start from still air" doesn't, so you can watch the circulation grow.</p>
+      <h3>Now</h3>
+      <p class="note" id="simDiag"></p>
+    </section>
+
+    <section class="tab" data-tab="cases" hidden>
+      <p class="note">Real North Pacific events of the past year, a step at a time: each step sets up the map and the day, and says what to look for. Use Next and Back; the map is yours to explore at any step.</p>
+      <div id="caseList"></div>
+      <div id="casePlayer" hidden>
+        <p class="case-head"><b id="caseTitle"></b><br><span class="when" id="caseWhen"></span></p>
+        <div class="cams case-nav" title="The buttons sit above the text so they stay in reach however long a step is">
+          <button class="mini" id="casePrev">◀ Back</button>
+          <button class="mini" id="casePlay" hidden>▶ Play these days</button>
+          <button class="mini" id="caseNext">Next ▶</button>
+        </div>
+        <div class="card case-step">
+          <p class="when" id="caseCount"></p>
+          <p class="case-step-title" id="caseStepTitle"></p>
+          <div id="caseText"></div>
+        </div>
+        <label title="Amber rings and labels on the map at the features the step names, shown while the map is on the step's day"><input type="checkbox" id="caseMarks" checked> Mark the features on the map</label>
+        <p class="hint"><a href="#" id="caseAll">← all cases</a> · Sources: <span id="caseSources"></span></p>
+      </div>
+    </section>
+
+    <section class="tab" data-tab="year" hidden>
+      <label>Map <select id="yearView" title="What to show"></select></label>
+      <label>As <select id="yearMode" title="The value itself, or how far it is from the 1991–2020 average for that date"><option value="anomaly" selected>anomaly vs 1991–2020</option><option value="actual">actual value</option></select></label>
+      <label>Lines <select id="yearLines" title="Contour lines on top"><option value="auto" selected>the usual ones</option><option value="isobars">isobars</option><option value="heights">500 mb heights</option><option value="none">none</option></select></label>
+      <label>Wind <select id="yearWind" title="The wind of that day at one level (usual: the level that goes with the map)"><option value="auto" selected>the usual level</option><option value="none">none</option><option value="10">10 m</option><option value="500">500 mb</option><option value="250">250 mb</option></select>
+        <select id="yearWindAs" title="How to draw it. Particles move through that one moment's wind (00 UTC), not a real day of motion"><option value="flow" selected>as flow lines</option><option value="barbs">as barbs</option><option value="particles">as particles</option></select></label>
+      <p class="hint">One real analysis per day at 00 UTC, never blended. Click the map for <b>the year at that point</b>. <kbd>←</kbd><kbd>→</kbd> step a day · <kbd>Space</kbd> play. <a href="guide.html#past-year" target="_blank" rel="noopener">About the past year →</a></p>
+    </section>
+
+    <section class="tab" data-tab="layers" hidden>
+      <table class="column" id="column">
+        <thead><tr><th>level</th><th data-unit title="Mean height of the level in the data on screen, in km and feet. Click (or press U) to put feet first everywhere.">height ⇄</th><th title="The level you're studying: gets the colour fill, particles and barbs">focus</th><th title="Contour lines: on other levels, for context; on the focus level, untick to see its colour fill alone (e.g. wave height without isobars)">lines</th><th title="Label highs and lows (H, L) on this level">H/L</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <h3>On the focus level</h3>
+      <label>Colour by <select id="focusFill"></select></label>
+      <label id="diffRow" hidden title="The colour as GFS minus ECMWF at the same valid time: red where GFS is higher, blue where ECMWF is, white where they agree. The lines, wind and labels stay the model on screen. Not for anomalies, derived quantities or observed sea temperature."><input type="checkbox" id="diffToggle"> as GFS − ECMWF (where the models differ)</label>
+      <label title="How see-through the focus level's colour is">Opacity <input type="range" id="fillOpacity" min="0.1" max="1" step="0.05" value="0.75"></label>
+      <p class="windrow">Wind <span class="windAt"></span> as</p>
+      <div class="row2">
+        <label title="The wind made visible: streaks drifting with it on the focus level. At the surface this is the 10 m wind (the same particles as Surface particles below)"><input type="checkbox" id="focusParticles"> particles</label>
+        <label title="Wind barbs on the focus level, in knots: half feather 5, feather 10, pennant 50, pointing into the wind"><input type="checkbox" id="focusBarbs"> barbs</label>
+        <label title="Flow lines (streamlines): lines everywhere parallel to the wind at one real model step, arrowheads pointing downwind. They show the pattern — where air turns, spreads apart or crowds together — but not the speed (use the fill or barbs for that)"><input type="checkbox" id="focusFlow"> flow lines</label>
+      </div>
+      <h3>At the surface</h3>
+      <label title="Particles on the surface, whatever level is in focus: the 10 m wind, or wave energy — drifting the way the waves travel at the speed their energy travels in deep water (group speed g·T/4π, from the peak period T). Wave energy is teal so it can't be mistaken for the wind.">Surface particles show <select id="surfaceParticles"><option value="off">off</option><option value="wind">10 m wind</option><option value="waves">wave energy (group speed)</option></select></label>
+      <label id="waveUnitRow" hidden title="Wave heights in the colour key, the hover readout and the probe (both are always given; this picks which comes first and the key's unit). Separate from the km/ft of altitudes.">Wave heights in <select id="waveUnit"><option value="m">metres</option><option value="ft">feet</option></select></label>
+      <details class="grp" id="shapeGroup">
+        <summary title="How the sheets are drawn: vertical stretch, relief of the focus level, shading, the other levels">Shape: stretch, relief, shading</summary
+>
+        <label title="How much heights are stretched so the levels separate (the atmosphere is thin: 10 km over a 12,000 km map)">Vertical stretch <input type="range" id="vexSlider" min="0" max="2.602" step="0.01" value="2.08"> <span id="vexValue"></span></label>
+        <label id="reliefRow" title="Stretch the focus level's troughs and ridges around its mean height so its shape shows (a level's bumps are only a few hundred metres). The mean stays at its true height; readouts, H/L and contours stay true. The page says when relief is on.">Relief <input type="range" id="relief" min="1" max="10" step="0.5" value="1"> <span id="reliefVal">×1 (true)</span></label>
+        <label title="Light filled levels from the north-west, like a hillshade on a terrain map, so troughs and ridges read even with no relief. Lighting only: nothing moves."><input type="checkbox" id="shadeToggle" checked> shaded relief</label>
+        <label title="How the other ticked levels are shown">Other levels <select id="contextStyle"><option value="lines" selected>lines only</option><option value="sheets">lines + faint sheet</option></select></label>
+      </details>
+    </section>
+
+    <section class="tab" data-tab="slice" hidden>
+      <div class="cams"><button class="mini" id="d3Off" title="Untick the colour fill, particles, flow lines and plane below, and set the region back to the whole atmosphere (no outline, handles or fading): back to the plain map and its levels. The camera stays where it is.">Turn off all 3-D</button></div>
+      <h3>Region to explore</h3>
+      <label title="Where the 3-D tools work: the slice plane, the volume and the 3-D particles all follow this region. Move it and they move together.">Shape <select id="roiShape">
+        <option value="whole" selected>the whole atmosphere</option>
+        <option value="wall">a vertical wall (a slice)</option>
+        <option value="layer">a horizontal layer</option>
+        <option value="box">a box</option>
+      </select></label>
+      <div id="roiBox" hidden>
+        <label title="The box's south edge (drag the yellow corner handles in the scene to resize it, the white one to move it)">South <input type="range" id="boxS"> <span id="boxSVal"></span></label>
+        <label title="The box's north edge">North <input type="range" id="boxN"> <span id="boxNVal"></span></label>
+        <label title="The box's west edge">West <input type="range" id="boxW"> <span id="boxWVal"></span></label>
+        <label title="The box's east edge">East <input type="range" id="boxE"> <span id="boxEVal"></span></label>
+      </div>
+      <div id="roiWall" hidden>
+        <label>Run <select id="secMode"><option value="ns" selected>north–south</option><option value="ew">east–west</option></select></label>
+        <label title="Slide the slice across the map, like a CT scan ( [ and ] step it )">Position <input type="range" id="secPos" step="0.5"> <span id="secPosVal"></span></label>
+        <div class="cams">
+          <button class="mini" id="secPrev" title="Step back 2° ([)">◀ step</button>
+          <button class="mini" id="secSweep" title="Sweep the slice across the whole map">▶ sweep</button>
+          <button class="mini" id="secNext" title="Step on 2° (])">step ▶</button>
+        </div>
+        <label title="Turn the slice about its middle">Turn <input type="range" id="secTurn" min="-90" max="90" step="1" value="0"> <span id="secTurnVal">0°</span></label>
+        <label title="How wide the wall is: the slice plane averages across it (like a slab in a CT scan), and the volume and particles fill it (a thin slice: a 300 km band for them)">Width <select id="secThick"><option value="0" selected>thin slice</option><option value="250">250 km slab</option><option value="500">500 km slab</option><option value="1000">1000 km slab</option></select></label>
+      </div>
+      <div id="roiHeights" hidden>
+        <label title="How deep the region is; all the way = every height at once">Thickness <input type="range" id="roiThick" min="0.25" max="12.5" step="0.25" value="12.5"></label>
+        <label title="The region's bottom: 0 = the surface (the 10 m wind for particles); it reaches up from here by its thickness">Bottom <input type="range" id="roiBottom" min="0" max="12.25" step="0.25" value="0"></label>
+        <div class="cams"><button class="mini" id="roiAll" title="The whole depth, surface to 12.5 km">all heights</button><button class="mini" id="roiSweepUp" title="Move the region up from the surface to the top; press again to stop">▶ sweep up</button></div>
+      </div>
+      <p class="note" id="roiNote"></p>
+      <label title="Handles in the scene (flat map): drag the white one to move a wall or a box, the yellow one to turn a wall (a box's two yellow corners resize it), the blue ones up and down to set the heights, the green one to raise or lower the horizontal plane"><input type="checkbox" id="roiHandles" checked> Drag handles in the scene</label>
+      <label title="The region's edges drawn in the scene: a box's or a wall's band's outline at its bottom and top, joined at the corners; a layer's two rectangles over the map"><input type="checkbox" id="roiOutline" checked> Outline the region</label>
+        <div class="cams" id="roiViews" title="Camera views of the region: the camera flies there, then drag to look around it">
+          <span class="vlabel">View it</span>
+          <button class="mini" data-rview="face" title="Square onto a wall; or looking down at an angle onto a layer">Face</button>
+          <button class="mini" data-rview="edge" title="Along a wall's line, or level with a layer from the side: its thickness fills the view">Edge-on</button>
+          <button class="mini" data-rview="orbit" title="The camera turns around the region's centre: drag to spin around it">Orbit it</button>
+          <button class="mini" data-rview="above" title="Straight down onto the region from directly overhead, the whole of it in view">From above</button>
+          <button class="mini" data-rview="below" title="Standing at the surface under the region, looking up into it">From below</button>
+          <button class="mini" data-rview="inside" title="Inside the region at its middle height, looking along it">Inside</button>
+        </div>
+        <div class="cams" id="roiWallCams">
+          <button class="mini" id="secSquare" title="Back to straight north–south / east–west, centred">Square up</button>
+        </div>
+
+      <h3>Show in the region</h3>
+      <label title="What the region shows. The fill and the plane show it directly; particles and flow lines always move with the wind and take this quantity only as their colour">Quantity <select id="rq">
+        <optgroup label="Wind">
+          <option value="speed" selected>wind speed</option>
+          <option value="across" data-wall>wind across the wall (jet cores)</option>
+          <option value="along" data-wall>wind along the wall</option>
+          <option value="w" data-needs-w>rising / sinking air</option>
+          <option value="vort">vorticity (spin)</option>
+          <option value="div">divergence / convergence</option>
+          <option value="ti">turbulence risk (Ellrod index)</option>
+        </optgroup>
+        <optgroup label="Temperature and moisture">
+          <option value="temp">temperature</option>
+          <option value="theta">potential temperature θ</option>
+          <option value="stab">stability (dθ/dz)</option>
+          <option value="ri">mixing: Richardson number</option>
+          <option value="thetae">θe: air masses with their moisture</option>
+          <option value="grad">thermal gradient (front zones)</option>
+          <option value="fgen">frontogenesis (fronts forming)</option>
+          <option value="rh">humidity (RH)</option>
+        </optgroup>
+        <optgroup label="Against the 1991–2020 normal" data-clim>
+          <option value="tanom" data-clim>temperature anomaly (fill only)</option>
+          <option value="ghanom" data-clim>height anomaly (fill only)</option>
+        </optgroup>
+      </select></label>
+      <p class="note" id="rqNote"></p>
+      <label id="rqDiffRow" hidden title="The colour fill and the plane show the quantity as GFS minus ECMWF at the same valid time (red: GFS higher, blue: ECMWF higher), taken level by level and drawn on the on-screen model's level heights. Particles and flow lines stay the on-screen model's wind. Not for anomalies or the wind across / along a wall."><input type="checkbox" id="rqDiff"> as GFS − ECMWF (colour fill and plane)</label>
+      <label title="The quantity as a see-through colour filling the region, everywhere or only where it passes a threshold (a 3-D shape), filled between the model's levels"><input type="checkbox" id="volToggle"> Colour fill</label>
+      <div id="volBody" hidden>
+        <label title="Everywhere: the whole region tinted by the quantity. A shape: only where it passes the threshold, like the jet as a tube">Show <select id="volMode"><option value="all">everywhere, see-through</option><option value="shape" selected>only beyond a threshold (a shape)</option></select></label>
+        <label title="Show only where the value is at least this">Threshold <input type="range" id="volThr"> <span id="volThrVal"></span></label>
+        <label>Opacity <input type="range" id="volOpacity" min="0.2" max="1" step="0.05" value="0.8"></label>
+        <label title="The colour behind the scene (the same as the Map tab's). Light grey by default while the fill is on; white for pale fills and lines; dark to make bright colours glow. Your choice is kept for the next fill, on this device.">Background <select id="bgSel3d"><option value="space">dark (space)</option><option value="light">light grey</option><option value="white">white</option></select></label>
+      </div>
+      <label title="Wind particles at every height inside the region. They always move with the wind, whatever the quantity; the quantity can colour them. Each drifts with the wind at its own altitude (filled between the model's levels), and can climb and sink with the model's vertical motion"><input type="checkbox" id="p3Toggle"> Particles (move with the wind)</label>
+      <div id="p3Body" hidden>
+        <label title="Only the colour: the motion is always the wind">Colour by <select id="p3Color"><option value="q">the quantity</option><option value="height" selected>height (level colours)</option></select></label>
+        <label title="How see-through the region's particles are (the levels' own particles are set in the Style tab)">Opacity <input type="range" id="p3Opacity" min="0.1" max="1" step="0.05" value="0.9"></label>
+        <label data-needs-w title="Let each particle climb or sink with the model's vertical motion where it is. True speed: in the same flow time as the drift, so a path slopes as the air really does (then stretched by the page's vertical stretch like everything else). ×5 exaggerates the climb itself, to make weak motion visible.">Rise and sink <select id="p3Vert"><option value="0" selected>off (level flight)</option><option value="1">true speed</option><option value="5">×5 (exaggerated)</option></select></label>
+        <label>Density <input type="range" id="p3Density" min="0.25" max="1.5" step="0.05" value="1"></label>
+      </div>
+      <label title="Lines that follow the wind through the region in three dimensions (always the wind; the quantity can colour them), from points inside it, at the nearer real model step (a snapshot of the flow, not the path air will take as the pattern moves); faint where they start, bright where they end"><input type="checkbox" id="fl3Toggle"> 3-D flow lines (follow the wind)</label>
+      <div id="fl3Body" hidden>
+        <label title="Only the colour: the motion is always the wind">Colour by <select id="fl3Color"><option value="q" selected>the quantity</option><option value="height">height (level colours)</option></select></label>
+        <label title="How many lines start in the region">Lines <select id="fl3Count"><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option></select></label>
+        <label title="How far each line follows the wind, in hours of flow">Length <select id="fl3Hours"><option value="6">6 h of flow</option><option value="12" selected>12 h</option><option value="24">24 h</option></select></label>
+        <label data-needs-w title="Let the lines climb and sink with the model's vertical motion (true speed, or ×5 to see weak motion)">Rise and sink <select id="fl3Vert"><option value="0" selected>off (level)</option><option value="1">true speed</option><option value="5">×5 (exaggerated)</option></select></label>
+        <label>Opacity <input type="range" id="fl3Opacity" min="0.2" max="1" step="0.05" value="0.9"></label>
+      </div>
+      <label title="A plane through the region, coloured and lined: for a wall, its vertical slice; for a layer or the whole atmosphere, a horizontal map at a height you choose. Each has a flat chart."><input type="checkbox" id="secToggle"> Plane</label>
+      <div id="hpBody" hidden>
+        <label title="The height of the horizontal plane (inside the region's heights)">At <input type="range" id="hpZ" min="0" max="12.5" step="0.05" value="5.5"> </label>
+        <p class="note" id="hpZVal"></p>
+        <label title="Contour lines on the plane. Pressure at a fixed height is a constant-height chart: the counterpart of a pressure-level chart, with lows and highs as on a weather map">Lines <select id="hpLines"><option value="pressure" selected>pressure every 4 hPa (a constant-height chart)</option><option value="theta">θ every 4 K</option><option value="speed">wind every 20 kt</option><option value="none">none</option></select></label>
+        <label title="How see-through the plane is (lines stay solid)">Opacity <input type="range" id="hpOpacity" min="0.2" max="1" step="0.05" value="0.85"></label>
+        <label title="The plane as a flat map chart"><input type="checkbox" id="hpChartToggle" checked> Flat chart</label>
+      </div>
+      <div id="secBody">
+        <label title="How see-through the plane is (lines stay solid)">Opacity <input type="range" id="secOpacity" min="0.2" max="1" step="0.05" value="0.92"></label>
+        <label title="Contour lines drawn on the slice">Lines <select id="secLines"><option value="theta" selected>θ every 4 K (stability, fronts)</option><option value="speed">wind every 20 kt</option><option value="none">none</option></select></label>
+        <label title="Each pressure level drawn on the slice at its real height (in 3-D and on the flat chart), in the level's colour, the focus level bold, broken where it's below ground: the levels sag over cold air and troughs and rise over warm air and ridges"><input type="checkbox" id="secLevels" checked> Pressure levels on the slice</label>
+        <label data-needs-w title="On the flat chart: arrows for the air's motion in the slice's plane (the wind along the slice and the vertical motion), drawn with the chart's own height stretch so they slope as the air really moves across the picture. Fixed length: direction only."><input type="checkbox" id="secArrows"> Motion arrows (flat chart)</label>
+        <label title="The slice as a flat cross-section chart (height up, position across), at the nearer real model step"><input type="checkbox" id="secChartToggle" checked> Flat chart</label>
+        <p class="note" id="secNote">Between grid points and between the model's levels the slice is interpolated; below the lowest level above ground it's left empty.</p>
+      </div>
+      <div id="roiOutside" hidden>
+        <h3>Outside the region</h3>
+        <label title="The other layers you have on (level fills and lines, their particles, barbs and flow lines) stay, but fade outside the region so it stands out. 0 = hide them there; 100 % = no fading.">Other layers <input type="range" id="roiDim" min="0" max="1" step="0.05" value="0.35"> <span id="roiDimVal">35 %</span></label>
+      </div>
+    </section>
+
+    <section class="tab" data-tab="map" hidden>
+      <h3>Satellite (observed)</h3>
+      <label title="Observed infrared (GOES-18 + Himawari-9) over the 24 h up to the build, on the ground. White = cold, high cloud tops."><input type="checkbox" id="satToggle" checked> Satellite, last 24 h</label>
+      <label class="sub" id="satChannelRow" hidden title="Which satellite picture. Infrared: the temperature of whatever the satellite sees, cloud tops or the sea: white is cold, high cloud. Water vapour (mid-level, 6.9 µm): the temperature of the highest moist layer, around 400–600 mb, so it shows moisture aloft even without cloud: blue and white moist, brown and orange dry, sinking air. Troughs, dry slots behind fronts, jet streams and the subsidence over the highs stand out.">Channel <select id="satChannel"><option value="ir" selected>infrared</option><option value="wv">water vapour (mid-level)</option></select></label>
+      <label class="sub" title="Colours the coldest cloud tops (below −30 °C), where storms and the ITCZ's tall clouds are. Needs the infrared image on (ticking this turns it on)."><input type="checkbox" id="satEnhance"> colour-enhanced (cold cloud tops)</label>
+      <label class="sub">Opacity <input type="range" id="satOpacity" min="0.1" max="1" step="0.05" value="1"></label>
+      <button class="mini" id="blinkBtn" title="Hide the model's colour fill for a moment to compare it with the satellite (or map) under it; press again, or B, to bring it back. Best with Colour by: moist air only.">Blink model fill (B)</button>
+      <label title="Units for the height ruler, the slice's axis, the probe and the hover readout (the Layers column shows both). U toggles.">Heights in <select id="hUnit"><option value="km" selected>km</option><option value="ft">feet</option></select></label>
+      <div id="opcGroup" hidden>
+        <h3>OPC charts</h3>
+        <label title="Off (default): OPC's chart exactly as published. On: its white paper becomes see-through so the map, satellite or model colours show beneath -- but pale ink (land tint, light fills, text boxes) fades with it."><input type="checkbox" id="opcPaper"> see-through paper (approximate: pale ink fades)</label>
+        <p class="note" id="opcNote"></p>
+      </div>
+      <h3>On the map</h3>
+      <label title="Latitude and longitude every 10°, on the top visible layer; the equator in red, the Tropic of Cancer and the dateline dashed"><input type="checkbox" id="gridToggle" checked> Lat/lon lines (equator red)</label>
+      <label title="Cities, islands and seas; cities stand on a stick from their spot on the ground"><input type="checkbox" id="namesToggle" checked> Place names</label>
+      <label title="The area OPC's North Pacific charts cover (16°N–65°N, 135°E–115°W)"><input type="checkbox" id="opcToggle" checked> OPC chart area</label>
+      <label title="A vertical scale standing on the map (lower left of the view): km on the left, the levels on screen at their real height there on the right. Hidden when looking straight down."><input type="checkbox" id="rulerToggle" checked> Height ruler</label>
+      <label title="Land and coastlines on the map: printed onto the top level's colour fill and traced along its coast, or on the surface only (where the basemap always is; with the satellite image on, coastlines are traced over it)"><input type="checkbox" id="coastToggle" checked> Map (land and coast)</label>
+      <label title="Where the map and the lat/lon lines go. On the top level: they ride on the highest level showing, so you can read positions where you're looking. On the surface: they stay on the ground under everything, so the levels and the region's fills and particles stand clear of them.">Map and lat/lon lines on <select id="mapAt"><option value="top">the top level showing</option><option value="sfc">the surface</option></select></label>
+      <label title="The colour behind the scene. It follows the 3-D tab's colour fill: light grey while the fill is on (see-through fills show about twice as clearly on it), dark otherwise (bright particles and lines stand out); white suits pale fills and lines. Pick one here (or under the 3-D tab's colour fill) to override it for that case, fill on or off; the choice is remembered on this device.">Background <select id="bgSel"><option value="space">dark (space)</option><option value="light">light grey</option><option value="white">white</option></select></label>
+      <label title="Highs (H, blue) and lows (L, red) on the levels ticked in the column's H/L boxes (the focus level by default): sea-level pressure in hPa (&quot;L 979&quot;), heights aloft in decametres with the level (&quot;L 529·500&quot;). A point that is the lowest/highest within ±4° (highs ±6°) and stands out by 0.4 × the contour interval, at the nearer real step. Surface ones over high ground are skipped."><input type="checkbox" id="hlToggle" checked> H and L (levels ticked in the column)</label>
+    </section>
+
+    <section class="tab" data-tab="style" hidden>
+      <h3>Level lines <button class="mini" id="lineStylesReset" title="Back to the default colours and widths">reset</button></h3>
+      <table class="linestyles"><tbody id="lineStyles"></tbody></table>
+      <h3>Wind particles</h3>
+      <label title="Dark tones for the light map, light tones for the dark satellite image. Auto switches with the satellite.">Colours <select id="pPalette"><option value="auto" selected>auto (light over satellite)</option><option value="dark">dark</option><option value="light">light</option></select></label>
+      <label>Width <input type="range" id="pWidth" min="1" max="5" step="0.1" value="2.2"></label>
+      <label>Density <input type="range" id="pDensity" min="-0.6" max="0.6" step="0.05" value="0"></label>
+      <label>Speed <input type="range" id="pSpeed" min="0.25" max="3" step="0.05" value="1"></label>
+      <label>Opacity <input type="range" id="pOpacity" min="0.2" max="1" step="0.05" value="0.9"></label>
+      <h3>Wind barbs</h3>
+      <label title="Auto keeps barbs about 50 px apart at any zoom, so zoomed out they don't pile up">Spacing <select id="barbSpacing">
+        <option value="auto" selected>auto (by zoom)</option>
+        <option value="4">every 2°</option><option value="6">every 3°</option>
+        <option value="8">every 4°</option><option value="12">every 6°</option>
+      </select></label>
+      <label title="Length of a barb's staff on screen, in pixels (the same at any zoom)">Size <input type="range" id="barbSize" min="20" max="60" step="2" value="34"></label>
+      <label title="Stroke width in pixels; each barb also has a thin outline of the opposite brightness">Thickness <input type="range" id="barbWidth" min="0.6" max="3" step="0.1" value="1.2"></label>
+      <h3>Flow lines</h3>
+      <label title="Distance between neighbouring flow lines on screen, kept at any zoom">Spacing <select id="flowSpacing"><option value="40">close (40 px)</option><option value="60" selected>normal (60 px)</option><option value="90">wide (90 px)</option></select></label>
+      <label title="Stroke width in pixels, with a thin outline like the barbs">Thickness <input type="range" id="flowWidth" min="0.6" max="3" step="0.1" value="1.4"></label>
+    </section>
+    <section class="tab" data-tab="share" hidden>
+      <h3>Draw on the map</h3>
+      <p class="note">Mark what you want people to see, then copy the link or save a picture: the drawings go with them.</p>
+      <div class="droptools">
+        <button class="mini" id="noteArrow" title="An arrow: click where it starts, then where it points">➚ arrow</button>
+        <button class="mini" id="noteCircle" title="A circle: click the centre, then the edge">◯ circle</button>
+        <button class="mini" id="noteText" title="A text label: type it below, then click where it goes">T label</button>
+        <select id="noteColor" title="Colour" aria-label="Colour"><option value="0">amber</option><option value="1">red</option><option value="2">blue</option><option value="3">white</option><option value="4">black</option></select>
+        <button class="mini" id="noteUndo" title="Remove the last drawing">↶ undo</button>
+        <button class="mini" id="noteClear" title="Remove all the drawings">clear</button>
+      </div>
+      <input type="text" id="noteInput" maxlength="80" placeholder="Label text, e.g. trough" style="width:100%;font-size:0.75rem" aria-label="Label text">
+      <p class="brief-note"><span id="noteHint"></span> <span id="noteCount"></span></p>
+      <h3>Link to this view</h3>
+      <button class="mini" id="shareCopy" title="A link that opens the explorer with these settings, camera and time. If the time isn't in the build the other person opens (a later day), they get the same settings at their 'now'.">Copy link to this view</button>
+      <input type="text" id="shareLink" readonly hidden style="width:100%;font-size:0.72rem;margin-top:0.3rem" aria-label="Share link">
+      <p class="note" id="shareNote"></p>
+      <h3>Tour <span class="muted">(kept on this device)</span></h3>
+      <div class="cams">
+        <button class="mini" id="tourAdd" title="Add the current view as a stop">+ Stop</button>
+        <button class="mini" id="tourPlay" title="Fly through the stops in order">▶ Play</button>
+        <button class="mini" id="tourClear" title="Remove all stops">Clear</button>
+      </div>
+      <p class="note" id="tourCount"></p>
+      <h3>Save the view <span class="muted">(the view only, never the controls)</span></h3>
+      <label>What <select id="expWhat">
+        <option value="png">picture (PNG)</option>
+        <option value="time" selected>animation over time</option>
+        <option value="tour">tour flight</option>
+      </select></label>
+      <label id="expRangeRow" title="Which part of the timeline to animate">Time <select id="expRange">
+        <option value="next24">now → +24 h</option><option value="next72" selected>now → +3 days</option>
+        <option value="forecast">now → end of forecast</option><option value="past24">past 24 h (with satellite)</option>
+        <option value="all">the whole timeline</option>
+      </select></label>
+      <label id="expStepRow" title="Frames at the model's real steps, or every hour (the frames in between are blends, labelled interpolated)">Frames <select id="expStep">
+        <option value="real" selected>each real model step</option><option value="1">every hour (blended between steps)</option>
+      </select></label>
+      <label id="expFormatRow">Format <select id="expFormat"><option value="mp4" selected>MP4 video</option><option value="gif">GIF</option></select></label>
+      <label title="Output width; the height keeps the view's shape">Width <select id="expWidth"><option value="960">960 px</option><option value="1280" selected>1280 px</option><option value="1920">1920 px</option></select></label>
+      <button id="expGo" title="Make the file (the colour keys, time and credits are included)">Save</button>
+      <p class="note" id="expNote">Includes the colour keys, the valid time and run, the labels, and the credits and disclaimer.</p>
+    </section>
+    <p class="missing" id="missingNote"></p>
+  </div>
+  <button class="show-panel" id="showPanel" hidden title="Show the controls (H)">☰ Controls</button>
+
+  <div class="readout" id="readout" hidden></div>
+  <div class="slicechart" id="secChart" hidden>
+    <div class="sc-head"><span id="secChartInfo"></span><button class="mini" id="secChartClose" title="Hide the chart (the slice stays)">×</button></div>
+    <canvas id="secChartCanvas"></canvas>
+    <div class="sc-hover" id="secChartHover">Move over the chart for values.</div>
+  </div>
+  <div class="slicechart" id="simChart" hidden>
+    <div class="sc-head"><span id="simChartInfo"></span></div>
+    <canvas id="simChartCanvas"></canvas>
+  </div>
+  <div class="dock" id="dock">
+  <div class="probe" id="probe" hidden>
+    <div class="probe-head"><b id="probeWhere"></b> <span><button class="mini" id="probeFold" title="Fold the probe to this line (click again to open)">▾</button> <button class="mini" id="probeClose" title="Close the probe">×</button></span></div>
+    <div class="probe-when" id="probeWhen"></div>
+    <h3>Profile <span class="muted">— temperature (red) and dewpoint (green); where they meet, the air is saturated</span></h3>
+    <div id="probeProfile"></div>
+    <h3>Meteogram <span class="muted">— every real step at this point</span></h3>
+    <label class="probe-opt" title="Draw the other model's lines too (dashed): where they part, the forecast is uncertain"><input type="checkbox" id="probeBoth"> both models</label>
+    <div id="probeMeteo"></div>
+  </div>
+  <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="timebar">
+    <!-- the chart menu at the far left, then the play controls, then the slider (user request 2026-10-09) -->
+    <span class="opcnav" id="opcNav" hidden>
+      <span class="opcrow">
+        <select id="opcSel" title="Show a forecaster's published chart (OPC, HFO) on the map, at its valid time (the ticks on the slider)"><option value="">OPC chart: off</option><option value="surface_analysis">OPC surface</option><option value="500mb">OPC 500 mb</option></select>
+        <button id="opcPrev" title="Previous chart">◀</button><button id="opcNext" title="Next chart">▶</button>
+      </span>
+      <label class="opclbl" title="The chart's opacity: slide left to fade it and see the map (or satellite) under it">chart opacity <input type="range" id="opcOpacity" min="0" max="1" step="0.05" value="1"></label>
+    </span>
+    <button id="prevBtn" title="Previous real step (←)">◀</button>
+    <button id="playBtn" title="Play / pause (space)">▶ Play</button>
+    <button id="nextBtn" title="Next real step (→)">▶</button>
+    <button id="nowBtn" title="Jump to now (this device's clock)">Now</button>
+    <label class="loopsat" title="What Play does at the end. Whole timeline: start again from the beginning. Satellite hours: play only the hours with satellite images, over and over (the past day up to the build), to watch the observed clouds move with the model's isobars. Off: stop at the end (Play again starts over).">loop <select id="loopSel"><option value="all" selected>whole timeline</option><option value="sat" id="loopSatOpt" hidden>satellite hours</option><option value="off">off</option></select></label>
+    <div class="track">
+      <div class="marks" id="timeMarks"></div>
+      <input type="range" id="timeSlider" min="0" max="1" step="0.01" value="0" aria-label="Time">
+      <div class="nights" id="timeNights" aria-hidden="true"></div>
+      <div class="days" id="timeDays"></div>
+    </div>
+    <button class="mini tzbtn" id="tzBtn" title="The days under the slider in your own time zone or in UTC (click to switch)">local</button>
+    <select id="speedSel" aria-label="Playback speed">
+      <option value="0.8">slow</option>
+      <option value="1.6" selected>normal</option>
+      <option value="3.2">fast</option>
+    </select>
+    <span class="status" id="loadStatus"></span>
+  </div>
+  <div class="timebar yearbar" id="yearBar" hidden>
+    <button id="yearPrev" title="Previous day (←)">◀</button>
+    <button id="yearPlay" title="Play the year, a day at a time (space)">▶ Play</button>
+    <button id="yearNext" title="Next day (→)">▶</button>
+    <div class="track"><input type="range" id="yearSlider" min="0" max="0" step="1" value="0" aria-label="Day"></div>
+    <span class="status" id="yearDate"></span>
+    <select id="yearSpeed" aria-label="Days per second"><option value="2">2 days/s</option><option value="5" selected>5 days/s</option><option value="12">12 days/s</option></select>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./atmos3d_app/vendor/three.module.min.js", "three/addons/": "./atmos3d_app/vendor/" } }
+</script>
+<script type="module" src="atmos3d_app/main.js?v=20261010090011"></script>
+
+</body>
+</html>
