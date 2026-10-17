@@ -1,0 +1,3 @@
+// The settled 3-D states the Simulate lessons can start from (pe3d_states/<name>.json): written by
+// tools/make_pe3d_states.mjs; don't edit by hand. Regenerate whenever pe3d.js, moist.js or the forcing change.
+export const PE3D_SAVED = {"land-sst-d263":{"day":263,"from":"jul"},"land-sst-mtn-d15":{"day":15,"from":"jan"},"aqua-moist-tau15-d80":{"day":80,"from":"jan"},"land-sst-mtn-moist-tau15-d263":{"day":263,"from":"jul"},"land-sst-mtn-moist-tau15-d349":{"day":349,"from":"jan"},"land-sst-mtn-moist-elnino1997-tau15-d349":{"day":349,"from":"jan"},"land-sst-mtn-moist-lanina2010-tau15-d349":{"day":349,"from":"jan"},"land-sst-mtn-moist-tau15-d15":{"day":15,"from":"jan"}};
