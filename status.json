@@ -1,0 +1,67 @@
+{
+ "built_at": "2026-10-31T09:00:12Z",
+ "written_at": "2026-10-31T09:47:55Z",
+ "commit": "830a3a7 Full view upright: frame the map tighter and steeper, toward the Northwest and Hawaii",
+ "publishable": true,
+ "minutes": {
+  "discover": 0.76,
+  "satellite": 7.59,
+  "export": 32.55,
+  "archive": 6.63,
+  "page": 0.2
+ },
+ "minutes_total": 47.7,
+ "steps_done": 116,
+ "steps_total": 116,
+ "models": {
+  "gfs": {
+   "init": "2026-10-31T00:00:00Z",
+   "pacific_steps": 58,
+   "hemisphere_steps": 37,
+   "missing_steps": 0,
+   "missing_share": 0.0
+  },
+  "ecmwf": {
+   "init": "2026-10-31T00:00:00Z",
+   "pacific_steps": 58,
+   "hemisphere_steps": 31,
+   "missing_steps": 0,
+   "missing_share": 0.0
+  }
+ },
+ "missing": [],
+ "missing_by_class": {},
+ "archive": {
+  "days": 365,
+  "nh_days": 365,
+  "new": 1,
+  "failed": 0,
+  "nh_new": 0,
+  "nh_failed": 0,
+  "obs_failed": 5,
+  "stopped_by_budget": false
+ },
+ "satellite_frames": 70,
+ "opc_charts": 29,
+ "climatology": true,
+ "oisst": "2026-10-29",
+ "cpc_indices": "2026-10-31T09:47Z",
+ "tropical_cyclones": 1,
+ "afd": [
+  "HFO",
+  "SEW"
+ ],
+ "site_mb": {
+  "total": 718.8,
+  "gfs": 174.1,
+  "ecmwf": 123.6,
+  "archive": 129.3,
+  "archive_nh": 62.0,
+  "obs": 0.1
+ },
+ "previous_tests": "236 passed, 6 warnings in 109.73s (0:01:49)",
+ "verdict": "ok",
+ "why": [
+  "everything built"
+ ]
+}

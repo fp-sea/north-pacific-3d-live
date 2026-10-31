@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Build status</title>
+<style>
+:root { --bg: #f6f7f9; --fg: #1b2129; --muted: #5c6773; --card: #fff; --line: #dde2e8; --ok: #1f8a4c; --warn: #b7791f; --fail: #c53030; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f1318; --fg: #e3e8ee; --muted: #9aa5b1; --card: #171c23; --line: #2a323c; } }
+:root[data-theme="dark"] { --bg: #0f1318; --fg: #e3e8ee; --muted: #9aa5b1; --card: #171c23; --line: #2a323c; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 -apple-system, system-ui, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 1.3rem; margin: 0 0 4px; } h2 { font-size: 1rem; margin: 22px 0 8px; }
+.muted { color: var(--muted); font-size: 0.85rem; }
+.banner { border-radius: 10px; padding: 12px 14px; color: #fff; margin: 12px 0; }
+.banner.ok { background: var(--ok); } .banner.warn { background: var(--warn); } .banner.fail { background: var(--fail); }
+.banner ul { margin: 6px 0 0 18px; padding: 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.bad { color: var(--fail); font-weight: 700; } td.reason { color: var(--muted); font-size: 0.78rem; word-break: break-word; min-width: 220px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; background: var(--muted); }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.fail { background: var(--fail); }
+.spark polyline { fill: none; stroke: currentColor; stroke-width: 1.5; }
+ul.plain { margin: 0; padding-left: 18px; }
+</style></head><body><main>
+<h1>North Pacific 3D: build status</h1>
+<p class="muted">Built 2026-10-31T09:00:12Z (UTC). Written by the daily build; not linked from the site. <a href="atmos3d.html">The site</a> · <a href="status.json">status.json</a></p>
+<div class="banner ok"><b>All good</b><ul><li>everything built</li></ul></div>
+<h2>Forecast steps by model</h2>
+<div class="card"><table><tr><th>Model</th><th>Run</th><th>Pacific steps</th><th>Hemisphere steps</th><th>Missing</th></tr><tr><td>GFS</td><td>2026-10-31T00:00:00Z</td><td>58</td><td>37</td><td class="">0</td></tr><tr><td>ECMWF</td><td>2026-10-31T00:00:00Z</td><td>58</td><td>31</td><td class="">0</td></tr></table>
+<p class="muted">Missing by cause: none</p></div>
+<h2>What's missing, and why</h2>
+<div class="card"><table><tr><th>Model</th><th>Step</th><th>Valid (UTC)</th><th>Part</th><th>Cause</th><th>Message</th></tr><tr><td colspan="6">None</td></tr></table></div>
+<h2>The rest of the build</h2>
+<div class="card"><ul class="plain"><li>Satellite frames: 70</li><li>Forecasters' charts: 29</li><li>Climatology: yes</li><li>Observed SST day: 2026-10-29</li><li>CPC indices: 2026-10-31T09:47Z</li><li>Tropical cyclones: 1</li><li>NWS forecast discussions: HFO, SEW</li><li>Past year: 365 days (1 new, 0 failed); hemisphere 365 days (0 failed)</li><li>Code: 830a3a7 Full view upright: frame the map tighter and steeper, toward the Northwest and Hawaii</li><li>Previous run's tests: 236 passed, 6 warnings in 109.73s (0:01:49)</li></ul>
+<p class="muted">Time: discover 0.76 min · satellite 7.59 min · export 32.55 min · archive 6.63 min · page 0.2 min (total 47.7 min)<br>Size: total 719 MB · gfs 174 MB · ecmwf 124 MB · archive 129 MB · archive_nh 62 MB · obs 0 MB</p></div>
+<h2>The last builds</h2>
+<div class="card"><p class="muted">Build minutes <svg class="spark" viewBox="0 0 160 28" width="160" height="28" aria-hidden="true"><polyline points="2.0,5.7 14.0,7.1 26.0,7.0 38.0,8.3 50.0,7.0 62.0,9.0 74.0,5.7 86.0,8.0 98.0,6.9 110.0,2.0 122.0,7.4 134.0,9.1 146.0,26.0 158.0,5.7"/></svg> &nbsp; Site MB <svg class="spark" viewBox="0 0 160 28" width="160" height="28" aria-hidden="true"><polyline points="2.0,2.0 14.0,2.7 26.0,2.7 38.0,2.6 50.0,2.6 62.0,2.6 74.0,2.6 86.0,2.5 98.0,2.5 110.0,2.5 122.0,2.5 134.0,2.4 146.0,26.0 158.0,2.3"/></svg></p>
+<table><tr><th>Built (UTC)</th><th>Verdict</th><th>Pacific steps (per model)</th><th>Missing</th><th>Minutes</th><th>Site MB</th></tr><tr><td>2026-10-31 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>47.7</td><td>718.8</td></tr><tr><td>2026-09-28 09:40</td><td><span class="dot ok"></span>ok</td><td></td><td>0</td><td>0.0</td><td>0.0</td></tr><tr><td>2026-10-30 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>39.7</td><td>717.1</td></tr><tr><td>2026-10-29 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>43.6</td><td>714.3</td></tr><tr><td>2026-10-28 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>56.4</td><td>714.0</td></tr><tr><td>2026-10-27 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>45.0</td><td>713.5</td></tr><tr><td>2026-10-26 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>42.3</td><td>712.5</td></tr><tr><td>2026-10-25 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>47.6</td><td>709.8</td></tr><tr><td>2026-10-24 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>39.9</td><td>711.4</td></tr><tr><td>2026-10-23 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>44.6</td><td>710.7</td></tr><tr><td>2026-10-22 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>41.6</td><td>709.9</td></tr><tr><td>2026-10-21 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>44.7</td><td>708.1</td></tr><tr><td>2026-10-20 22:06</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>44.4</td><td>707.1</td></tr><tr><td>2026-10-19 09:00</td><td><span class="dot ok"></span>ok</td><td>58 / 58</td><td>0</td><td>47.6</td><td>729.1</td></tr></table></div>
+</main></body></html>
